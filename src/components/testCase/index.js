@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import Accordion from '@mui/material/Accordion';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import AccordionDetails from '@mui/material/AccordionDetails';
 import TextField from '@mui/material/TextField';
 import Checkbox from '@mui/material/Checkbox';
+import Grid from '@mui/material/Grid';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 import style from './index.module.css';
 import { InputSize } from './inputSize'
@@ -15,12 +13,15 @@ export function TestCase({ update, ...rest }) {
 
     return (
         <div className={style.container}>
+
             <Checkbox defaultChecked />
+            <Grid container direction={'row'} justifyContent={'space-between'} >
             <TextField
                 id="filled-basic"
                 label="Filled"
                 variant="filled"
-                size='small'
+                size='medium'
+                fullWidth
                 value={testCase.title}
                 onClick={(evn) => evn.stopPropagation()}
                 onChange={(evn) => {
@@ -44,6 +45,8 @@ export function TestCase({ update, ...rest }) {
                 })}
             />
 
+            </Grid>
+
             <CodeEditor
                 value={testCase.generateDataCode}
                 language="js"
@@ -55,7 +58,6 @@ export function TestCase({ update, ...rest }) {
                 padding={15}
                 style={{
                     fontSize: 14,
-
                     fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
                 }}
             />
@@ -75,8 +77,6 @@ export function TestCase({ update, ...rest }) {
                     fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
                 }}
             />
-            
-            
         </div>
     );
 }

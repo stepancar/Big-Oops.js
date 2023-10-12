@@ -21,6 +21,14 @@ import { Solution } from './components/solution'
 
 import { ComparisionChart } from './components/comparisonChart'
 
+// Import your worker 
+import worker from 'workerize-loader!./worker'; // eslint-disable-line import/no-webpack-loader-syntax
+// Create an instance of your worker
+
+import implWorker from 'workerize-loader!./worker-impl'; // eslint-disable-line import/no-webpack-loader-syntax
+
+const workerInstance = worker()
+const implWorkerInstance = implWorker()
 function validateFunctionBody(code) {
   if (!code.includes('return')) {
     return false;
@@ -38,44 +46,79 @@ function range(from, to, stepsCount = 1) {
   return res;
 }
 
+
+async function generateData(implementationCode, data) {
+  return new Promise((resolve) => {
+    workerInstance.onmessage = (evn) => {
+      resolve(evn.data);
+    }
+    workerInstance.postMessage({
+      implementationCode,
+      data
+    });
+  })
+}
+
+
+async function callA(solutionCode, testCaseCode, data) {
+  return new Promise((resolve) => {
+    implWorkerInstance.onmessage = (evn) => {
+      resolve(evn.data);
+    }
+    implWorkerInstance.postMessage({
+      solutionCode,
+      testCaseCode,
+      data
+    });
+  })
+}
+
 function testRunner(testCases, solutions) {
   return {
     async run(callback) {
       const results = [];
       for (let testCase of testCases) {
-        const generateDataCodeFunction = new Function(testCase.generateDataCode);
+        // const generateDataCodeFunction = new Function(testCase.generateDataCode);
 
         const dataSizes = range(testCase.minInputSize, testCase.maxInputSize, testCase.stepsCount);
 
-        const testCaseFunction = new Function(testCase.code);
+       
         for (let dataSize of dataSizes) {
-          const data = generateDataCodeFunction()({ n: dataSize });
+
+
+          const data = await generateData(testCase.generateDataCode, { n: dataSize });
 
           for (let solution of solutions) {
+            
+            await new Promise((resolve) => {
+              setTimeout(() => {
+                resolve();
+              }, 10);
+            })
 
-            const solutionFunction = new Function(solution.code);
+            const nIter = 1;
+            let executionTime = 0;
+            for (let i = 0; i< nIter; i++) {
+              const d = await callA(solution.code, testCase.code, data);
+              executionTime += d.executionTime;
+            }
 
-            const startTime = performance.now();
-            const result = testCaseFunction()(solutionFunction(), data);
+            executionTime /= nIter;
+            
             console.log(typeof result);
-            const endTime = performance.now();
+       
 
             const perfResult = {
               solutionId: solution.id,
               testCaseId: testCase.id,
               dataSize,
-              executionTime: endTime - startTime,
+              executionTime,
             };
 
             results.push(perfResult);
 
             callback([...results]);
 
-            await new Promise((resolve) => {
-              setTimeout(() => {
-                resolve();
-              }, 1);
-            })
           }
         }
       }
@@ -114,8 +157,9 @@ function App() {
   const [results, setResults] = useState([]);
 
 
-  async function handlePlayClick() {
-    testRunner(testCases, solutions).run((results) => {
+  async function handlePlayClick(index) {
+    
+    testRunner(index === undefined ? testCases: [testCases[index]], solutions).run((results) => {
       setResults(results);
     });
   }

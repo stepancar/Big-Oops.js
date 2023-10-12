@@ -43,7 +43,6 @@ export function ComparisionChart({ title, datasets }) {
     }, [datasets]);
     return (
         <div>
-            <h2>{title}</h2>
             <canvas ref={canvasRef}></canvas>
         </div>
     );
