@@ -3,11 +3,9 @@ import Chart from 'chart.js/auto'
 
 export function ComparisionChart({ title, datasets }) {
     const canvasRef = useRef();
+    const chartRef = useRef();
 
     useEffect(() => {
-        if (datasets.length === 0) {
-            return null;
-        }
         const chart = new Chart(canvasRef.current, {
             type: 'line',
             data: {
@@ -20,15 +18,29 @@ export function ComparisionChart({ title, datasets }) {
                         type: 'linear',
                         position: 'bottom'
                     }
-                }
-            }
+                },
+                animation: false,
+            },
+            
         });
+
+        chartRef.current = chart;
+       
 
         return () => {
             chart.destroy();
         }
 
-    }, [canvasRef, datasets]);
+    }, [canvasRef]);
+
+    useEffect(() => {
+        if (!chartRef.current) {
+            return;
+        }
+
+        chartRef.current.data.datasets = datasets;
+        chartRef.current.update()
+    }, [datasets]);
     return (
         <div>
             <h2>{title}</h2>

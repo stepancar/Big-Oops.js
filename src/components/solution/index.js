@@ -7,7 +7,7 @@ import Checkbox from '@mui/material/Checkbox';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 import style from './index.module.css';
 
-export function Solution({ title, code, update }) {
+export function Solution({ update, ...rest }) {
     return (
         <div className={style.container}>
             
@@ -17,19 +17,24 @@ export function Solution({ title, code, update }) {
                         label="Filled"
                         variant="filled"
                         size='small'
-                        value={title}
+                        value={rest.title}
                         onChange={(evn) => {
-                            update(code, evn.target.value)
-                            
+                            update({
+                                ...rest,
+                                title: evn.target.value,
+                            });
                         }}
                     />
                     <Checkbox defaultChecked />
                 
                     <CodeEditor
-                        value={code}
+                        value={rest.code}
                         language="js"
                         placeholder="Please enter JS code."
-                        onChange={(evn) => update(evn.target.value, title)}
+                        onChange={(evn) => update({
+                            ...rest,
+                            code: evn.target.value,
+                        })}
                         padding={15}
                         style={{
                             fontSize: 14,
