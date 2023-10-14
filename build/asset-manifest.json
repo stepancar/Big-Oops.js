@@ -1,16 +1,16 @@
 {
   "files": {
     "main.css": "/Big-Oops.js/build/static/css/main.dd76293e.css",
-    "main.js": "/Big-Oops.js/build/static/js/main.8c7af62b.js",
+    "main.js": "/Big-Oops.js/build/static/js/main.b8a99047.js",
     "static/js/787.75f27d5b.chunk.js": "/Big-Oops.js/build/static/js/787.75f27d5b.chunk.js",
-    "worker.js": "/Big-Oops.js/build/b58b9ff9e8f97e7f1b6f.worker.js",
+    "worker.js": "/Big-Oops.js/build/8ed890285d2f55af0d19.worker.js",
     "index.html": "/Big-Oops.js/build/index.html",
     "main.dd76293e.css.map": "/Big-Oops.js/build/static/css/main.dd76293e.css.map",
-    "main.8c7af62b.js.map": "/Big-Oops.js/build/static/js/main.8c7af62b.js.map",
+    "main.b8a99047.js.map": "/Big-Oops.js/build/static/js/main.b8a99047.js.map",
     "787.75f27d5b.chunk.js.map": "/Big-Oops.js/build/static/js/787.75f27d5b.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.dd76293e.css",
-    "static/js/main.8c7af62b.js"
+    "static/js/main.b8a99047.js"
   ]
 }
