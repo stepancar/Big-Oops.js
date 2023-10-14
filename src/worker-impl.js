@@ -20,6 +20,7 @@ onmessage = function (e) {
 
         this.postMessage({
             executionTime: 0,
+            error: e.message
         })
     }
 };

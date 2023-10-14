@@ -13,13 +13,7 @@ import implWorker from 'workerize-loader!./worker-impl'; // eslint-disable-line 
 const testDataWorkerInstance = worker()
 const testRunnerWorkerInstance = implWorker()
 
-function validateFunctionBody(code) {
-  if (!code.includes('return')) {
-    return false;
-  }
-
-  return true;
-}
+const iterationCount = 1;
 
 function range(from, to, stepsCount = 1) {
   const increment = (to - from) / stepsCount;
@@ -30,7 +24,9 @@ function range(from, to, stepsCount = 1) {
   return res;
 }
 
-
+/**
+ * Generates test data in a web worker in order to prevent affecting main thread
+ */
 async function generateData(implementationCode, data) {
   return new Promise((resolve) => {
     testDataWorkerInstance.onmessage = (evn) => {
@@ -44,7 +40,7 @@ async function generateData(implementationCode, data) {
 }
 
 
-async function callA(solutionCode, testCaseCode, data) {
+async function runTestForSolution(solutionCode, testCaseCode, data) {
   return new Promise((resolve) => {
     testRunnerWorkerInstance.onmessage = (evn) => {
       resolve(evn.data);
@@ -77,21 +73,22 @@ function testRunner(testCases, solutions) {
               }, 10);
             })
 
-            const nIter = 1;
+            let error = null;
             let executionTime = 0;
-            for (let i = 0; i < nIter; i++) {
-              const d = await callA(solution.code, testCase.code, data);
-              executionTime += d.executionTime;
+            for (let i = 0; i < iterationCount; i++) {
+              const result = await runTestForSolution(solution.code, testCase.code, data);
+              error = result.error;
+              executionTime += result.executionTime;
             }
 
-            executionTime /= nIter;
-
+            executionTime /= iterationCount;
 
             const perfResult = {
               solutionId: solution.id,
               testCaseId: testCase.id,
               dataSize,
               executionTime,
+              error
             };
 
             results.push(perfResult);
@@ -115,10 +112,11 @@ function getDataForTestCase(testCase, results, solutions) {
     title: testCase.title,
     datasets: Object.entries(groupedBySolution).map(([solutionId, data]) => {
       const solution = solutions.find(({ id }) => id === solutionId);
-
+      const firstResultWithError = data.find(({ error }) => error);
+      
       return {
-        label: solution.title,
-        data: data.map(({ executionTime, dataSize }) => ({ executionTime, dataSize })),
+        label: solution.title + (firstResultWithError ? ` (${ firstResultWithError.error }) after  ${firstResultWithError.dataSize}` : ''),
+        data: data.filter(({error}) => !error).map(({ executionTime, dataSize }) => ({ executionTime, dataSize })),
         parsing: {
           yAxisKey: 'executionTime',
           xAxisKey: 'dataSize',
@@ -196,14 +194,14 @@ function App() {
     setTestCases([...testCases]);
   }
 
-  function onRemoveTestCaseClick(index) {
-    testCases.splice(index, 1);
-    setTestCases([...testCases]);
+  function onRemoveTestCaseClick(testCaseId) {
+    setTestCases(testCases.filter(({ id }) => id !== testCaseId));
+    setResults(results.filter((r) => r.testCaseId !== testCaseId));
   }
 
-  function onRemoveSolutionClick(index) {
-    solutions.splice(index, 1);
-    setSolutions([...solutions]);
+  function onRemoveSolutionClick(solutionId) {
+    setSolutions(solutions.filter(({ id }) => id !== solutionId));
+    setResults(results.filter((r) => r.solutionId !== solutionId));
   }
 
   useEffect(() => {
@@ -259,7 +257,7 @@ function App() {
                       key={solution.id}
                       {...solution}
                       update={(solution) => setSolution(solution, index)}
-                      onRemoveSolutionClick={() => onRemoveSolutionClick(index)}
+                      onRemoveSolutionClick={() => onRemoveSolutionClick(solution.id)}
                     />
                     <div>
                       <button onClick={() => addSolution(index + 1)}>
@@ -289,7 +287,7 @@ function App() {
                       key={testCase.id}
                       {...testCase}
                       runTest={() => runTest([testCase.id])}
-                      onRemoveTestCaseClick={() => onRemoveTestCaseClick(index)}
+                      onRemoveTestCaseClick={() => onRemoveTestCaseClick(testCase.id)}
                       update={(testCase) => setTestCase(testCase, index)}
                     >
                       <ComparisionChart
