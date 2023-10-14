@@ -1,4 +1,4 @@
-export function flatten(array) {
+function flatten(array) {
     var res = [];
     var isArray = Array.isArray;
 

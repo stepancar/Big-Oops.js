@@ -7,6 +7,7 @@ import { TestCase } from './components/testCase'
 import { Solution } from './components/solution'
 
 import { ComparisionChart } from './components/comparisonChart'
+import { executeTestInMainThread, generateTestDataInMainThread } from './executors'
 import worker from 'workerize-loader!./worker'; // eslint-disable-line import/no-webpack-loader-syntax
 import implWorker from 'workerize-loader!./worker-impl'; // eslint-disable-line import/no-webpack-loader-syntax
 
@@ -28,29 +29,18 @@ function range(from, to, stepsCount = 1) {
  * Generates test data in a web worker in order to prevent affecting main thread
  */
 async function generateData(implementationCode, data) {
-  return new Promise((resolve) => {
-    testDataWorkerInstance.onmessage = (evn) => {
-      resolve(evn.data);
-    }
-    testDataWorkerInstance.postMessage({
-      implementationCode,
-      data
-    });
-  })
+  return generateTestDataInMainThread({ implementationCode, data })
+  // return testDataWorkerInstance.generateTestData({ implementationCode, data });
 }
 
 
 async function runTestForSolution(solutionCode, testCaseCode, data) {
-  return new Promise((resolve) => {
-    testRunnerWorkerInstance.onmessage = (evn) => {
-      resolve(evn.data);
-    }
-    testRunnerWorkerInstance.postMessage({
-      solutionCode,
-      testCaseCode,
-      data
-    });
-  })
+  return executeTestInMainThread({ solutionCode, testCaseCode, data })
+  // return testRunnerWorkerInstance.executeTest({
+  //   solutionCode,
+  //   testCaseCode,
+  //   data
+  // });
 }
 
 function testRunner(testCases, solutions) {
@@ -72,28 +62,32 @@ function testRunner(testCases, solutions) {
                 resolve();
               }, 10);
             })
+            try {
 
-            let error = null;
-            let executionTime = 0;
-            for (let i = 0; i < iterationCount; i++) {
-              const result = await runTestForSolution(solution.code, testCase.code, data);
-              error = result.error;
-              executionTime += result.executionTime;
+              let error = null;
+              let executionTime = 0;
+              for (let i = 0; i < iterationCount; i++) {
+                const result = await runTestForSolution(solution.code, testCase.code, data);
+                error = result.error;
+                executionTime += result.executionTime;
+              }
+
+              executionTime /= iterationCount;
+
+              const perfResult = {
+                solutionId: solution.id,
+                testCaseId: testCase.id,
+                dataSize,
+                executionTime,
+                error
+              };
+
+              results.push(perfResult);
+
+              callback([...results]);
+            } catch (e) {
+              console.log(e);
             }
-
-            executionTime /= iterationCount;
-
-            const perfResult = {
-              solutionId: solution.id,
-              testCaseId: testCase.id,
-              dataSize,
-              executionTime,
-              error
-            };
-
-            results.push(perfResult);
-
-            callback([...results]);
           }
         }
       }
@@ -113,10 +107,10 @@ function getDataForTestCase(testCase, results, solutions) {
     datasets: Object.entries(groupedBySolution).map(([solutionId, data]) => {
       const solution = solutions.find(({ id }) => id === solutionId);
       const firstResultWithError = data.find(({ error }) => error);
-      
+
       return {
-        label: solution.title + (firstResultWithError ? ` (${ firstResultWithError.error }) after  ${firstResultWithError.dataSize}` : ''),
-        data: data.filter(({error}) => !error).map(({ executionTime, dataSize }) => ({ executionTime, dataSize })),
+        label: solution.title + (firstResultWithError ? ` (${firstResultWithError.error}) after  ${firstResultWithError.dataSize}` : ''),
+        data: data.filter(({ error }) => !error).map(({ executionTime, dataSize }) => ({ executionTime, dataSize })),
         parsing: {
           yAxisKey: 'executionTime',
           xAxisKey: 'dataSize',

@@ -1,7 +1,4 @@
-console.log('Worker loaded');
-// listen meesage from main thread
-
-export async function executeTest({ solutionCode, testCaseCode, data }) {
+export async function executeTestInMainThread({ solutionCode, testCaseCode, data }) {
     const solutionFunction = new Function(solutionCode);
 
     const testCaseFunction = new Function(testCaseCode);
@@ -22,4 +19,10 @@ export async function executeTest({ solutionCode, testCaseCode, data }) {
             error: e.message
         }
     }
+}
+
+export async function generateTestDataInMainThread({ implementationCode, data }) {
+    const f = new Function(implementationCode);
+
+    return f()(data);
 }

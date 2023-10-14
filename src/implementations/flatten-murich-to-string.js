@@ -1,5 +1,5 @@
-export var flatten = (
+var flatten = (
     ( theArg ) => {
-        return theArg.toString();
+        return theArg.toString().split(',');
     }
 );
