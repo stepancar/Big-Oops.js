@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import Chart from 'chart.js/auto'
 
 export function ComparisionChart({ title, datasets }) {
@@ -43,7 +43,7 @@ export function ComparisionChart({ title, datasets }) {
     }, [datasets]);
     return (
         <div>
-            <canvas ref={canvasRef}></canvas>
+            <canvas style={{display: datasets.length > 0 ? 'block': 'none'}} ref={canvasRef}></canvas>
         </div>
     );
 }

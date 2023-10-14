@@ -1,34 +1,18 @@
-import logo from './logo.svg';
-
-
 import './App.css';
-import { useEffect, useRef, useState } from 'react';
-import CodeEditor from '@uiw/react-textarea-code-editor';
+import { useEffect, useState } from 'react';
 import Grid from '@mui/material/Grid';
 import Fab from '@mui/material/Fab';
-import NavigationIcon from '@mui/icons-material/Navigation';
-import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import ShareIcon from '@mui/icons-material/Share';
-import DeleteIcon from '@mui/icons-material/Delete';
-import { flatten as flattenMinin } from './implementations/flatten-minin';
-import { flatten as flattenMurich } from './implementations/flatten-murich.js';
-import { flatten as flattenMurichToString } from './implementations/flatten-murich-to-string.js';
-import { flatten as flattenIterative } from './implementations/flatten-iterative.js'
-import { createBenchMarks } from './lib/benchmark.js';
-import { generateFlatArray, generatePyramid, generateDeepArray, generateReversdePyramid, generateSquareMatrix } from './generate-test-data'
 import { TestCase } from './components/testCase'
 import { Solution } from './components/solution'
 
 import { ComparisionChart } from './components/comparisonChart'
-
-// Import your worker 
 import worker from 'workerize-loader!./worker'; // eslint-disable-line import/no-webpack-loader-syntax
-// Create an instance of your worker
-
 import implWorker from 'workerize-loader!./worker-impl'; // eslint-disable-line import/no-webpack-loader-syntax
 
-const workerInstance = worker()
-const implWorkerInstance = implWorker()
+const testDataWorkerInstance = worker()
+const testRunnerWorkerInstance = implWorker()
+
 function validateFunctionBody(code) {
   if (!code.includes('return')) {
     return false;
@@ -49,10 +33,10 @@ function range(from, to, stepsCount = 1) {
 
 async function generateData(implementationCode, data) {
   return new Promise((resolve) => {
-    workerInstance.onmessage = (evn) => {
+    testDataWorkerInstance.onmessage = (evn) => {
       resolve(evn.data);
     }
-    workerInstance.postMessage({
+    testDataWorkerInstance.postMessage({
       implementationCode,
       data
     });
@@ -62,10 +46,10 @@ async function generateData(implementationCode, data) {
 
 async function callA(solutionCode, testCaseCode, data) {
   return new Promise((resolve) => {
-    implWorkerInstance.onmessage = (evn) => {
+    testRunnerWorkerInstance.onmessage = (evn) => {
       resolve(evn.data);
     }
-    implWorkerInstance.postMessage({
+    testRunnerWorkerInstance.postMessage({
       solutionCode,
       testCaseCode,
       data
@@ -78,18 +62,15 @@ function testRunner(testCases, solutions) {
     async run(callback) {
       const results = [];
       for (let testCase of testCases) {
-        // const generateDataCodeFunction = new Function(testCase.generateDataCode);
 
         const dataSizes = range(testCase.minInputSize, testCase.maxInputSize, testCase.stepsCount);
 
-       
         for (let dataSize of dataSizes) {
-
 
           const data = await generateData(testCase.generateDataCode, { n: dataSize });
 
           for (let solution of solutions) {
-            
+
             await new Promise((resolve) => {
               setTimeout(() => {
                 resolve();
@@ -98,15 +79,13 @@ function testRunner(testCases, solutions) {
 
             const nIter = 1;
             let executionTime = 0;
-            for (let i = 0; i< nIter; i++) {
+            for (let i = 0; i < nIter; i++) {
               const d = await callA(solution.code, testCase.code, data);
               executionTime += d.executionTime;
             }
 
             executionTime /= nIter;
-            
-            console.log(typeof result);
-       
+
 
             const perfResult = {
               solutionId: solution.id,
@@ -118,7 +97,6 @@ function testRunner(testCases, solutions) {
             results.push(perfResult);
 
             callback([...results]);
-
           }
         }
       }
@@ -150,46 +128,53 @@ function getDataForTestCase(testCase, results, solutions) {
   }
 }
 
-
 function App() {
   const [solutions, setSolutions] = useState([]);
   const [testCases, setTestCases] = useState([]);
   const [results, setResults] = useState([]);
 
 
-  async function handlePlayClick(index) {
-    
-    testRunner(index === undefined ? testCases: [testCases[index]], solutions).run((results) => {
-      setResults(results);
+  async function runTest(ids) {
+    testRunner(
+      testCases.filter(({ id }) => ids.includes(id)),
+      solutions.filter(({ include }) => include)
+    ).run((newResults) => {
+      setResults([...results.filter(({ testCaseId }) => !ids.includes(testCaseId)), ...newResults]);
     });
   }
 
-
-  function addSolution() {
-    solutions.push({
+  function addSolution(index) {
+    solutions.splice(index, 0, {
       id: Date.now().toString() + Math.random().toString(),
-      code: `return (arr) => {}`,
+      code: `// define your solution here\nfunction fn(arr) {\n  console.log(arr)\n}\n\nreturn (arr) => {\n  return fn(arr)\n}`,
       title: `solution ${solutions.length + 1}`,
+      include: true,
     });
 
     setSolutions([...solutions]);
   }
 
-  function setSolution({ id, code, title }, index) {
+  function shareLink() {
+    const url = window.location.href
+    navigator.clipboard.writeText(url);
+  }
+
+  function setSolution({ id, code, title, include }, index) {
     solutions[index] = {
       id,
       code,
       title,
+      include,
     };
 
     setSolutions([...solutions]);
   }
 
-  function addTestCase() {
-    testCases.push({
+  function addTestCase(index) {
+    testCases.splice(index, 0, {
       id: Date.now().toString() + Math.random().toString(),
-      code: 'return (fn, { arr }) => fn(arr)',
-      generateDataCode: 'return ({n}) => ({ arr: Array.from({length: n}, (_, i) => i) })',
+      code: '// pass test data into solution\n\nreturn (solution, { arr }) => solution(arr)',
+      generateDataCode: '// generate test data for input size\n\nreturn ({n}) => ({ arr: Array.from({length: n}, (_, i) => i) })',
       title: `test case ${testCases.length + 1}`,
       minInputSize: 0,
       maxInputSize: 1000,
@@ -216,6 +201,11 @@ function App() {
     setTestCases([...testCases]);
   }
 
+  function onRemoveSolutionClick(index) {
+    solutions.splice(index, 1);
+    setSolutions([...solutions]);
+  }
+
   useEffect(() => {
     setTimeout(() => {
       const str = JSON.stringify({
@@ -228,7 +218,6 @@ function App() {
   }, [solutions, testCases])
 
   useEffect(() => {
-    // read parameter code from url  play?#code/PTAEHUFM
     const str = window.location.hash.split('/')[1];
     if (!str) {
       if (localStorage.getItem('code')) {
@@ -245,237 +234,95 @@ function App() {
     setTestCases(data.testCases);
   }, []);
 
-
-
-  useEffect(() => {
-
-
-    // const benchmark = createBenchMarks({
-    //   title: 'flatten implementations comparison',
-    //   testCases: [
-    //     {
-    //       title: '1 level flat array',
-    //       data: [
-    //         ...(range(1000, 2000000, 10).map(n => ({
-    //           metadata: {
-    //             n,
-    //           },
-    //           data: generateFlatArray(n),
-    //         })))
-    //       ]
-    //     },
-    //     // {
-    //     //     title: 'n level deep array with 1 element',
-    //     //     data: [
-    //     //         ...(range(100, 20000, 10).map(n => ({
-    //     //             metadata: {
-    //     //                 n,
-    //     //             },
-    //     //             data: generateDeepArray(n),
-    //     //         })))
-    //     //     ]
-    //     // },
-    //     {
-    //       title: 'n square matrix',
-    //       data: [
-    //         ...(range(0, 200000, 10).map(n => ({
-    //           metadata: {
-    //             n,
-    //           },
-    //           data: generateSquareMatrix(n),
-    //         })))
-    //       ]
-    //     },
-    //     {
-    //       title: '2 level deep array, each level has one more element',
-    //       data: [
-    //         ...(range(0, 200000, 10).map(n => ({
-    //           metadata: {
-    //             n,
-    //           },
-    //           data: generatePyramid(n),
-    //         })))
-    //       ]
-    //     },
-    //     // {
-    //     //     title: '2 level deep array, each level has one more element',
-    //     //     data: [
-    //     //         ...(range(0, 4000000, 10).map(n => ({
-    //     //             metadata: {
-    //     //                 n,
-    //     //             },
-    //     //             data: generateReversdePyramid(n),
-    //     //         })))
-    //     //     ]
-    //     // }
-    //   ],
-
-    //   implementations: [
-    //     {
-    //       name: 'minin',
-    //       implementation: (data) => {
-    //         return flattenMinin(data);
-    //       }
-    //     },
-    //     {
-    //       name: 'murich to string',
-    //       implementation: (data) => {
-    //         return flattenMurichToString(data);
-    //       }
-    //     },
-    //     {
-    //       name: 'stepan iterative',
-    //       implementation: (data) => {
-    //         return flattenIterative(data);
-    //       }
-    //     },
-    //     {
-    //       name: 'murich recursive shit',
-    //       implementation: (data) => {
-    //         return flattenMurich(data);
-    //       }
-    //     },
-    //   ],
-    // });
-
-  });
-
   return (
-    <div className="App">
-      <button onClick={() => addSolution('function a() {}', 'new one')}>Add solution</button>
+    <div >
+      <header className='header'>
+        <h1>Big O(ops.js)</h1>
+        <span><i>aka Балабол js</i></span>
+      </header>
+      <div className='App'>
+        <div className='shareButton'>
+          <Fab variant="extended" onClick={shareLink}>
+            <ShareIcon sx={{ mr: 1 }} />
+            Share Comparison
+          </Fab>
+        </div>
 
-      <div>
-        <Fab variant="extended"
-          onClick={handlePlayClick}
-        >
-          <PlayCircleIcon sx={{ mr: 1 }} />
-          Run
-        </Fab>
-
-        <Fab variant="extended">
-          <ShareIcon sx={{ mr: 1 }} />
-          Share
-        </Fab>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={10} md={8} lg={7}>
-            <div className='solutions'>
-              {solutions.map((solution, index) => (
-                <Solution
-                  key={solution.id}
-                  {...solution}
-                  update={(solution) => setSolution(solution, index)}
-                />
-              ))}
-            </div>
+        <Grid container wrap={'wrap'} direction={'column'} xl={11} lg={11} >
+          <h2>Solutions to compare</h2>
+          <Grid container>
+            <Grid item xs={12} sm={12} md={12} lg={12} xl={12}>
+              <div className='solutions'>
+                {solutions.map((solution, index) => (
+                  <div className='solutionContainer'>
+                    <Solution
+                      key={solution.id}
+                      {...solution}
+                      update={(solution) => setSolution(solution, index)}
+                      onRemoveSolutionClick={() => onRemoveSolutionClick(index)}
+                    />
+                    <div>
+                      <button onClick={() => addSolution(index + 1)}>
+                        add new solution
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {solutions.length === 0 && (
+                  <div>
+                    <button onClick={() => addSolution(1)}>
+                      add new solution
+                    </button>
+                  </div>
+                )}
+              </div>
+            </Grid>
           </Grid>
 
-        </Grid>
-
-        <Grid container spacing={2}>
-
-          <Grid item xs={12} sm={12} md={12} lg={12}>
-
-            <div className='testCases'>
-              {testCases.map((testCase, index) => (
-                <div>
-                  <Grid item xs={12} sm={10} md={8} lg={7} direction={'row'} >
+          <h2>Test cases</h2>
+          <Grid container>
+            <Grid item xs={12} sm={12} md={12} lg={12} xl={12}>
+              <div className='testCases'>
+                {testCases.map((testCase, index) => (
+                  <div>
                     <TestCase
                       key={testCase.id}
                       {...testCase}
+                      runTest={() => runTest([testCase.id])}
+                      onRemoveTestCaseClick={() => onRemoveTestCaseClick(index)}
                       update={(testCase) => setTestCase(testCase, index)}
-                    />
-                    <Grid item alignSelf={'center'} justifySelf={'center'}>
-                      <Fab
-                        onClick={() => onRemoveTestCaseClick(index)}
-                      >
-                        <DeleteIcon />
-                      </Fab>
-
-                      <Fab
-                        onClick={() => handlePlayClick(index)}
-                      >
-                        <PlayCircleIcon />
-                      </Fab>
-                    </Grid>
-                  </Grid>
-                  <Grid item xs={12} sm={10} md={8} lg={7}>
-                    <ComparisionChart
-                      title={testCase.title}
-                      datasets={[...getDataForTestCase(testCase, results, solutions).datasets]}
-                    />
-                  </Grid>
-                </div>
-              ))}
-            </div>
+                    >
+                      <ComparisionChart
+                        title={testCase.title}
+                        datasets={[...getDataForTestCase(testCase, results, solutions).datasets]}
+                      />
+                    </TestCase>
+                    <div>
+                      <button onClick={() => addTestCase(index + 1)}>
+                        add new test case
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {testCases.length === 0 && (
+                  <div>
+                    <button onClick={() => addTestCase(1)}>
+                      add new test case
+                    </button>
+                  </div>
+                )}
+              </div>
+            </Grid>
           </Grid>
-
-          <Fab variant="extended"
-            onClick={addTestCase}
-          >
-            <PlayCircleIcon sx={{ mr: 1 }} />
-            Add test case
-        </Fab>
         </Grid>
+      </div>
+      <div className='footer'>
+        <div className='footerText'>
+          <p>Created by <a href='https://github.com/stepancar' target='_blank'>Stepan Mikhailiuk</a></p>
+        </div>
       </div>
     </div >
   );
 }
 
 export default App;
-
-
-
-// export default ({n}) => ({
-//   arr: generatePyramid(n),
-// })
-
-
-// function flatten(array) {
-//   const res = [];
-//   for (let i = 0; i < array.length; i++) {
-//       if (Array.isArray(array[i])) {
-//           const flat = flatten(array[i]);
-//           for (let j = 0; j < flat.length; j++) {
-//               res.push(flat[i]);
-//           }
-//       }
-//       else {
-//           res.push(array[i]);
-//       }
-//   }
-//   return res;
-// }
-
-// return (arr) => {
-//   return flatten(arr)
-// }
-
-
-
-// function generatePyramid(n) {
-//   let pyramid = [];
-//   let count = 1;
-//   let level = 1;
-//   while (count <= n) {
-//       let row = [];
-//       for (let j = 1; j <= level; j++) {
-//           if (count > n) {
-//               break;
-//           }
-//           row.push(count);
-//           count++;
-//       }
-//       pyramid.push(row);
-//       level++;
-//   }
-//   return pyramid;
-// }
-
-// return ({n}) => ({
-//   arr: generatePyramid(n),
-// })
-
-// return (fn, { arr }) => {
-//   return fn(arr);
-// }

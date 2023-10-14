@@ -1,3 +1,13 @@
 .container {
-    /* display: flex; */
+    display: flex;
+}
+
+.main {
+    flex: 1
+}
+
+.toolbox {
+    padding-right: 10px;
+    display: flex;
+    flex-direction: column;
 }

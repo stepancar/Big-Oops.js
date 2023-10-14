@@ -1,20 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
-import Slider from '@mui/material/Slider';
-import Checkbox from '@mui/material/Checkbox';
+import React from 'react';
 import Input from '@mui/material/Input';
 
 import style from './index.module.css';
 
 
 export function InputSize({ update, ...rest }) {
-
-  const [min, setMin] = useState(rest.min);
-  const [max, setMax] = useState(rest.max);
-  const [stepsCount, setStepsCount] = useState(rest.stepsCount);
   
   const handleChangeMin = (event) => {
+    if (event.target.value === '') {
+      return;
+    }
     const newVal = Number(event.target.value);
-    setMin(newVal);
+
     update({
       ...rest,
       min: newVal,
@@ -22,8 +19,11 @@ export function InputSize({ update, ...rest }) {
   }
 
   const handleChangeMax = (event) => {
+    if (event.target.value === '') {
+      return;
+    }
     const newVal = Number(event.target.value);
-    setMax(newVal);
+
     update({
       ...rest,
       max: newVal,
@@ -32,8 +32,11 @@ export function InputSize({ update, ...rest }) {
 
 
   const handleChangeStepsCount = (event) => {
+    if (event.target.value === '') {
+      return;
+    }
     const newVal = Number(event.target.value);
-    setStepsCount(newVal);
+
     update({
       ...rest,
       stepsCount: newVal,
@@ -43,9 +46,9 @@ export function InputSize({ update, ...rest }) {
   return (
     <div className={style.container} >
       <div class={style.controls}>
-        <Input type='number' value={min} onChange={ handleChangeMin } />
-        <Input type='number' value={max} onChange={ handleChangeMax } />
-        <Input type='number' value={stepsCount} onChange={ handleChangeStepsCount } />
+        <Input type='number' defaultValue={rest.min} onChange={ handleChangeMin } />
+        <Input type='number' defaultValue={rest.max} onChange={ handleChangeMax } />
+        <Input type='number' defaultValue={rest.stepsCount} onChange={ handleChangeStepsCount } />
       </div>
     </div>
   );
