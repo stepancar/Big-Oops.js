@@ -4,7 +4,7 @@ export function flatten(array) {
         if (Array.isArray(array[i])) {
             const flat = flatten(array[i]);
             for (let j = 0; j < flat.length; j++) {
-                res.push(flat[i]);
+                res.push(flat[j]);
             }
         }
         else {
